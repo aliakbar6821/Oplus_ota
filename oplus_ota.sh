@@ -107,8 +107,12 @@ try:
     print('OS_VER=' + body.get('realOsVersion', ''))
     print('SECURITY_PATCH=' + body.get('securityPatch', ''))
     print('SIZE=' + str(size_gb) + ' GB')
+    manual_url = ''
+    if components:
+        manual_url = components[0].get('componentPackets', {}).get('manualUrl', '')
     print('PANEL_URL=' + panel_url)
     print('DL_URL=' + dl_url)
+    print('MANUAL_URL=' + manual_url)
 except Exception as e:
     print('ERROR=' + str(e))
 ")
@@ -122,6 +126,7 @@ except Exception as e:
         size_display=$(echo "$parsed" | grep "^SIZE=" | cut -d= -f2-)
         panel_url=$(echo "$parsed" | grep "^PANEL_URL=" | cut -d= -f2-)
         dl_url=$(echo "$parsed" | grep "^DL_URL=" | cut -d= -f2-)
+        manual_url=$(echo "$parsed" | grep "^MANUAL_URL=" | cut -d= -f2-)
 
         echo -e "${GREEN}✅ Update found!${RESET}"
         echo -e "+============================================+"
@@ -139,21 +144,24 @@ except Exception as e:
             echo -e "${BLUE}$dl_url${RESET}"
             echo ""
 
-            # Clean URL - remove any newlines/spaces
+            # Clean URLs
             clean_url=$(echo "$dl_url" | tr -d '\n\r ' )
+            clean_manual=$(echo "$manual_url" | tr -d '\n\r ' )
 
             # Auto save to file
             save_file="ota_${model}_${region}.txt"
             echo "OTA: $real_ota" >> "$save_file"
             echo "URL: $clean_url" >> "$save_file"
+            [[ -n "$clean_manual" ]] && echo "ManualURL: $clean_manual" >> "$save_file"
             echo "" >> "$save_file"
             echo -e "${GREEN}✅ Saved to $save_file${RESET}"
 
             echo ""
             echo -e "Options:"
-            echo -e "  ${YELLOW}1${RESET} - Print clean URL (for manual copy)"
-            echo -e "  ${BLUE}2${RESET} - Show changelog URL"
-            echo -e "  ${RED}3${RESET} - Continue"
+            echo -e "  ${YELLOW}1${RESET} - Print Download URL"
+            echo -e "  ${GREEN}2${RESET} - Print Manual URL (try if slow)"
+            echo -e "  ${BLUE}3${RESET} - Show changelog URL"
+            echo -e "  ${RED}4${RESET} - Continue"
             read -p "Select: " post_action
             case "$post_action" in
                 1)
@@ -163,11 +171,17 @@ except Exception as e:
                     echo -e "${GREEN}===================${RESET}"
                     ;;
                 2)
+                    echo ""
+                    echo -e "${GREEN}=== MANUAL URL ===${RESET}"
+                    echo "$clean_manual"
+                    echo -e "${GREEN}=================${RESET}"
+                    ;;
+                3)
                     if [[ -n "$panel_url" ]]; then
                         echo -e "${BLUE}$panel_url${RESET}"
                     fi
                     ;;
-                3) ;;
+                4) ;;
             esac
         else
             echo -e "${RED}❌ No download URL found in response.${RESET}"
