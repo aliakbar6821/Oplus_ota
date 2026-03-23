@@ -94,8 +94,9 @@ type OTAResponse struct {
 		SecurityPatch   string `json:"securityPatch"`
 		Components []struct {
 			ComponentPackets struct {
-				URL  string `json:"url"`
-				Size string `json:"size"`
+				URL       string `json:"url"`
+				ManualURL string `json:"manualUrl"`
+				Size      string `json:"size"`
 			} `json:"componentPackets"`
 		} `json:"components"`
 		Description struct {
@@ -154,9 +155,11 @@ func saveURL(model, region, otaVer, url string) string {
 func showResult(resp *OTAResponse, model, region string) {
 	body := resp.Body
 	url := ""
+	manualURL := ""
 	size := ""
 	if len(body.Components) > 0 {
 		url = body.Components[0].ComponentPackets.URL
+		manualURL = body.Components[0].ComponentPackets.ManualURL
 		size = body.Components[0].ComponentPackets.Size
 	}
 
@@ -186,10 +189,26 @@ func showResult(resp *OTAResponse, model, region string) {
 		fmt.Println(labelStyle.Render("📥 Download URL:"))
 		fmt.Println(urlStyle.Render(url))
 		fmt.Println()
+		if manualURL != "" && manualURL != url {
+			fmt.Println(labelStyle.Render("📥 Manual URL (try if slow):"))
+			fmt.Println(urlStyle.Render(manualURL))
+			fmt.Println()
+		} else if manualURL != "" {
+			fmt.Println(warnStyle.Render("ℹ️  Manual URL is same as download URL"))
+			fmt.Println()
+		}
 
-		// Save to file
+		// Save both URLs to file
 		filename := saveURL(model, region, body.RealOtaVersion, url)
 		if filename != "" {
+			// Also save manualURL
+			if manualURL != "" {
+				f, _ := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0644)
+				if f != nil {
+					fmt.Fprintf(f, "ManualURL: %s\n\n", manualURL)
+					f.Close()
+				}
+			}
 			fmt.Println(successStyle.Render("✅ Saved to " + filename))
 		}
 
@@ -198,7 +217,8 @@ func showResult(resp *OTAResponse, model, region string) {
 		huh.NewSelect[string]().
 			Title("What do you want to do?").
 			Options(
-				huh.NewOption("Print clean URL", "print"),
+				huh.NewOption("Print Download URL", "print"),
+				huh.NewOption("Print Manual URL (try if slow)", "printmanual"),
 				huh.NewOption("Show changelog URL", "changelog"),
 				huh.NewOption("Continue", "skip"),
 			).
@@ -211,6 +231,11 @@ func showResult(resp *OTAResponse, model, region string) {
 			fmt.Println(labelStyle.Render("=== DOWNLOAD URL ==="))
 			fmt.Println(url)
 			fmt.Println(labelStyle.Render("===================="))
+		case "printmanual":
+			fmt.Println()
+			fmt.Println(labelStyle.Render("=== MANUAL URL ==="))
+			fmt.Println(manualURL)
+			fmt.Println(labelStyle.Render("=================="))
 		case "changelog":
 			if body.Description.PanelURL != "" {
 				fmt.Println(urlStyle.Render(body.Description.PanelURL))
